@@ -7,6 +7,11 @@ import { tokenService, linkService, mailService } from './';
 
 class AuthService {
   async registration(name: string, email: string, password: string) {
+    // const userRole = new RoleModel();
+    // const adminRole = new RoleModel({value: 'admin'});
+    // await userRole.save();
+    // await adminRole.save();
+    
     const user = await UserModel.findOne({ email: email }).lean();
     if (user) {
       throw ApiError.badRequest(
@@ -15,9 +20,13 @@ class AuthService {
     }
 
     const hashPassword = bcrypt.hashSync(password, 7);
-    const userRole = await RoleModel.findOne({ value: 'user' }, '', {
-      lean: true,
-    });
+
+    const userRole = await RoleModel.findOne(
+      { value: 'user' }, 
+      '', 
+      {lean: true}
+    );
+
     const newUser = new UserModel({
       name,
       email,
@@ -39,11 +48,13 @@ class AuthService {
       _id: newUser._id,
       name: newUser.name,
       email: newUser.email,
+      avatar: '',
       roles: newUser.roles,
       isActivated: newUser.isActivated,
     };
     
     const tokens = tokenService.generateTokens(userDto);
+    
     await tokenService.saveRefreshToken(userDto._id, tokens.refreshToken);
     return { ...tokens, user: userDto };
   }
@@ -63,7 +74,7 @@ class AuthService {
   async login(email: string, password: string) {
     const user = await UserModel.findOne(
       { email: email },
-      '_id name email roles isActivated',
+      '_id name email password roles isActivated avatar',
       { lean: true }
     );
 
@@ -76,9 +87,18 @@ class AuthService {
       throw ApiError.badRequest('Не верный пароль');
     }
 
-    const tokens = tokenService.generateTokens({ ...user });
+    const userDto: IUserDto = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar,
+      roles: user.roles,
+      isActivated: user.isActivated,
+    };
+
+    const tokens = tokenService.generateTokens(userDto);
     await tokenService.saveRefreshToken(user._id, tokens.refreshToken);
-    return { ...tokens, user };
+    return { ...tokens, user: userDto };
   }
 
   async logout(refreshToken: string) {
@@ -86,12 +106,11 @@ class AuthService {
     return result;
   }
 
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string) {    
     const user = await UserModel.findOne({ email: email }).lean();
-    if (!user)
-      throw ApiError.badRequest('Пользователь с таким email не найден');
+    if (!user) throw ApiError.badRequest('Пользователь с таким email не найден');
     const link = v4();
-    await linkService.createLink(link, user._id);
+    await linkService.createLink(user._id, link);
     await mailService.sendResetPassMail(
       email,
       `${process.env.CLIENT_URL}/resetPassword/${link}`

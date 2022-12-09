@@ -52,8 +52,11 @@ class AuthController {
           maxAge: 30 * 24 * 60 * 1000,
           httpOnly: true /* secure: true */,
         });
-
-        return res.json(userData);
+        
+        return res.json({
+          user: userData.user,
+          accessToken: userData.accessToken,
+        });
       }
     } catch (err) {
       next(err);
@@ -74,9 +77,7 @@ class AuthController {
   async refreshTokens(req: Request, res: Response, next: NextFunction) {
     // обновление access токена при помощи refresh токена, но при этом и refresh токен обновляется
     try {
-      const { refreshToken }: { refreshToken: string | undefined } =
-        req.cookies;
-      // console.log(refreshToken);
+      const { refreshToken }: { refreshToken: string | undefined } = req.cookies;
 
       if (!refreshToken) {
         throw ApiError.unauthorizedError('Пользователь не авторизован');
@@ -90,7 +91,10 @@ class AuthController {
           httpOnly: true /* secure: true */,
         });
 
-        return res.json(userData);
+        return res.json({
+          user: userData.user,
+          accessToken: userData.accessToken,
+        });
       }
     } catch (err) {
       next(err);
