@@ -6,7 +6,7 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { multerWithOptions, errorHandler } from './middlewares';
 import mongoose from 'mongoose';
-import router from './routes/index';
+import router from './routes';
 
 const app = express();
 app.disable('x-powered-by');

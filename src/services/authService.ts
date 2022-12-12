@@ -37,7 +37,7 @@ class AuthService {
     await newUser.save();
 
     const link = v4(); // рандомный id для ссылки активации
-    await linkService.createLink(newUser._id, link); // создаём ссылку активации
+    await linkService.createLink(newUser._id.toString(), link); // создаём ссылку активации
 
     await mailService.sendActivationMail(
       email,
@@ -55,7 +55,7 @@ class AuthService {
     
     const tokens = tokenService.generateTokens(userDto);
     
-    await tokenService.saveRefreshToken(userDto._id, tokens.refreshToken);
+    await tokenService.saveRefreshToken(userDto._id.toString(), tokens.refreshToken);
     return { ...tokens, user: userDto };
   }
 
@@ -97,7 +97,7 @@ class AuthService {
     };
 
     const tokens = tokenService.generateTokens(userDto);
-    await tokenService.saveRefreshToken(user._id, tokens.refreshToken);
+    await tokenService.saveRefreshToken(user._id.toString(), tokens.refreshToken);
     return { ...tokens, user: userDto };
   }
 
@@ -110,7 +110,7 @@ class AuthService {
     const user = await UserModel.findOne({ email: email }).lean();
     if (!user) throw ApiError.badRequest('Пользователь с таким email не найден');
     const link = v4();
-    await linkService.createLink(user._id, link);
+    await linkService.createLink(user._id.toString(), link);
     await mailService.sendResetPassMail(
       email,
       `${process.env.CLIENT_URL}/resetPassword/${link}`

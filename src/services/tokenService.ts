@@ -88,7 +88,7 @@ class TokenService {
 
     if (user) {
       const tokens = this.generateTokens(user);
-      await this.saveRefreshToken(user._id, tokens.refreshToken);
+      await this.saveRefreshToken(user._id.toString(), tokens.refreshToken);
       return { ...tokens, user };
     }
   }

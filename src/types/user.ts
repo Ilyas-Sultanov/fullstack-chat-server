@@ -1,7 +1,8 @@
+import { ObjectId } from 'mongoose';
 import { IPaginatedQuery } from './paginatedQuery';
 
 export interface IUser {
-  _id: string
+  _id: ObjectId
   name: string
   email: string
   avatar: string
