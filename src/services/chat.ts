@@ -1,25 +1,28 @@
+import { QueryOptions } from 'mongoose';
 import ApiError from '../exceptions/ApiError';
+import { cleanObject, paginatedResults } from '../helpers';
 import { ChatModel } from '../models/Chat';
 import { UserModel } from '../models/User';
+import { IChat } from '../types';
+import { IChatQuery } from '../types/chat';
 
 class ChatService {
-  async accessChat(user1Id: string, user2Id: string) {
-
-    const user2 = await UserModel.findOne(
-      {_id: user2Id},
+  async accessChat(currentUserId: string, targetUserId: string) {    
+    const targetUser = await UserModel.findOne(
+      {_id: targetUserId},
       '',
       {lean: true}
     );
-    if (!user2) {
-      throw ApiError.badRequest(`User with id: ${user2Id} not found`);
+    if (!targetUser) {
+      throw ApiError.badRequest(`User with id: ${targetUserId} not found`);
     }
 
     const chat = await ChatModel.findOne(
       {
         isGroupChat: false,
         $and: [
-          { users: {$elemMatch: { $eq: user1Id }} },
-          { users: {$elemMatch: { $eq: user2Id }} }
+          { users: {$elemMatch: { $eq: currentUserId }} },
+          { users: {$elemMatch: { $eq: targetUserId }} }
         ]
       },
       '',
@@ -48,9 +51,9 @@ class ChatService {
     else {
       // Если чат не найде, то создаём новый
       const chatData = {
-        name: user2.name,
+        name: 'Chat One on One', // Для чата один на один имя собеседника является названием чата, имя будет вычисляться на фронте.
         isGroupChat: false,
-        users: [user1Id, user2Id]
+        users: [currentUserId, targetUserId]
       }
 
       const newChat = await ChatModel.create(chatData);
@@ -70,7 +73,7 @@ class ChatService {
     }
   }
 
-  async getAllChats(userId: string) {
+  async getUserChats(userId: string) {
     const chats = await ChatModel.find(
       { users: {$elemMatch: { $eq: userId }} },
       '',
@@ -98,62 +101,92 @@ class ChatService {
     return chats;
   }
 
-  async createGroupChat(name: string, adminId: string, usersIds: Array<string>) {
+  async searchChat(currentUserId: string, query: IChatQuery, originalUrl: string) {
+    const filter = { 
+      $and: [
+        { isGroupChat: true }, // искать только по групповым чатам
+        { users: { "$ne": currentUserId } }, // Искать только там где нет текущего пользователя
+        { name: {$regex: new RegExp('^' + query.name + '.*', 'i')} },
+      ]
+    }
+
+    const preOptions: QueryOptions = {
+      limit: query.limit ? parseInt(query.limit) : 10,
+      skip: query.page
+        ? (parseInt(query.page) - 1) *
+          (query.limit ? parseInt(query.limit) : 10)
+        : undefined,
+      populate: [
+        {
+          path: 'users',
+          select: '-password',
+        },
+        {
+          path: 'groupAdmin',
+          select: '-password',
+        },
+        {
+          path: 'lastMessage', 
+          populate: { 
+            path: 'sender',
+            select: '-password',
+          }
+        },
+      ],
+      lean: true,
+    };
+
+    const queryProjection = '';
+    const options: QueryOptions = cleanObject(preOptions);
+
+    const chats = await paginatedResults<IChat>(
+      ChatModel,
+      filter,
+      originalUrl,
+      queryProjection,
+      options,
+      query.page ? parseInt(query.page) : null
+    );
+    
+    return chats;
+  }
+
+  async createGroupChat(name: string, adminId: string) {
     const groupChatData = {
       name,
-      users: [adminId, ...usersIds],
+      users: [adminId],
       isGroupChat: true,
       groupAdmin: adminId,
     }
 
-    const newChat = await ChatModel.create(groupChatData);
-    const chat = await ChatModel.findOne(
-      {_id: newChat},
-      '',
-      {
-        populate: [
-          {
-            path: 'users',
-            select: '-password',
-          },
-          {
-            path: 'groupAdmin',
-            select: '-password',
-          }
-        ]
-      }
-    );
-
-    return chat!;
+   await ChatModel.create(groupChatData);
   }
 
   async renameGroupChat(currentUserId: string, groupChatId: string, newName: string) {
     const targetChat = await ChatModel.findOne(
-      {
-        _id: groupChatId,
-      },
-      '',
-      {
-        populate: [
-          {
-            path: 'users',
-            select: '-password',
-          },
-          {
-            path: 'groupAdmin',
-            select: '-password',
-          }
-        ]
-      }
+      {_id: groupChatId},
     )   
 
     if (targetChat && targetChat.groupAdmin && targetChat.groupAdmin._id.toString() === currentUserId) {
       targetChat.name = newName;
       await targetChat.save();
-      return targetChat;
     }
     else {
       throw ApiError.badRequest('The chat was not found or you are not the administrator of the current chat.')
+    }
+  }
+
+  async deleteGroupChat(currentUserId: string, chatId: string) {
+    const result = await ChatModel.deleteOne(
+      {
+        _id: chatId,
+        isGroupChat: true,
+        groupAdmin: currentUserId,
+      },
+    );
+
+    if (result.deletedCount !== 1) {
+      throw ApiError.badRequest('Chat not found.')
     }
   }
 
@@ -166,16 +199,6 @@ class ChatService {
         $addToSet: { users: { $each: [userId] } } // $addToSet - добавит в массив только уникальное значение, $each - распаковывает массив в нужный (в данном примере в users)
       },
       {
-        populate: [
-          {
-            path: 'users',
-            select: '-password',
-          },
-          {
-            path: 'groupAdmin',
-            select: '-password',
-          }
-        ],
         new: true,
         lean: true,
       }
@@ -183,41 +206,18 @@ class ChatService {
 
     if (!chat) {
       throw ApiError.badRequest('The chat was not found.')
-    }
-    else {
-      return chat;
     }
   }
 
-  async leaveGroup(groupChatId: string, userId: string) {
-    const chat = await ChatModel.findOneAndUpdate(
-      {
-        _id: groupChatId
-      },
-      {
-        $pull: { users: { $in: [userId] } } // $pull - удаляет из массива, $in - всё что входит в массив, удалится из users
-      },
-      {
-        populate: [
-          {
-            path: 'users',
-            select: '-password',
-          },
-          {
-            path: 'groupAdmin',
-            select: '-password',
-          }
-        ],
-        new: true,
-        lean: true,
-      }
-    );
-
-    if (!chat) {
-      throw ApiError.badRequest('The chat was not found.')
-    }
+  async deleteUserFromChat(chatId: string, userId: string) {
+    const chat = await ChatModel.findOne({_id: chatId});
+    if (!chat) throw ApiError.badRequest('Chat not found.');
+    else if (!chat.isGroupChat) await chat.delete(); // если чат 'один на один' покидает один из пользователей, то удаляем весь чат.
     else {
-      return chat;
+      await ChatModel.findOneAndUpdate(
+        {_id: chatId},
+        {$pull: { users: { $in: [userId] } }}, // $pull - удаляет из массива, $in - всё что входит в массив, удалится из users
+      );
     }
   }
 }

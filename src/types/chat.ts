@@ -1,5 +1,6 @@
 import { Schema, Document, ObjectId, PopulatedDoc } from 'mongoose';
 import { IUser } from '../types/user';
+import { IPaginatedQuery } from './paginatedQuery';
 
 // export interface IChat {
 //   name: string,
@@ -17,4 +18,6 @@ export interface IChat {
   groupAdmin: PopulatedDoc<Document<ObjectId> & IUser>,
 }
 
-
+export interface IChatQuery extends IPaginatedQuery {
+  name?: string
+}

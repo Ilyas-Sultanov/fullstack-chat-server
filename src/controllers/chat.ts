@@ -5,12 +5,13 @@ import { chatService } from '../services/chat';
 class ChatController {
   async accessChat(req: Request, res: Response, next: NextFunction) {
     try {
-      const { userId }: { userId: string } = req.body;
-      if (!userId) {
+      const { targetUserId }: { targetUserId: string } = req.body;
+      
+      if (!targetUserId) {
         throw ApiError.badRequest('userId is required.');
       }
 
-      const chat = await chatService.accessChat(req.user._id.toString(), userId);
+      const chat = await chatService.accessChat(req.user._id.toString(), targetUserId);
       return res.json(chat);
     }
     catch (err) {
@@ -18,9 +19,19 @@ class ChatController {
     }
   }
 
-  async getAllChats(req: Request, res: Response, next: NextFunction) {
+  async getUserChats(req: Request, res: Response, next: NextFunction) {
     try {
-      const chats = await chatService.getAllChats(req.user._id.toString());
+      const chats = await chatService.getUserChats(req.user._id.toString());
+      return res.json(chats);
+    }
+    catch (err) {
+      next(err)
+    }
+  }
+
+  async searchChat(req: Request, res: Response, next: NextFunction) {
+    try {
+      const chats = await chatService.searchChat(req.user._id.toString(), req.query, req.originalUrl);
       return res.json(chats);
     }
     catch (err) {
@@ -30,9 +41,9 @@ class ChatController {
 
   async createGroupChat(req: Request, res: Response, next: NextFunction) {
     try {
-      const {name, users}: {name: string, users: string} = req.body;
-      const chat = await chatService.createGroupChat(name, req.user._id.toString(), JSON.parse(users));
-      return res.json(chat);
+      const {name}: {name: string} = req.body;
+      await chatService.createGroupChat(name, req.user._id.toString());
+      return res.status(201).end();
     }
     catch (err) {
       next(err)
@@ -42,30 +53,41 @@ class ChatController {
   async renameGroupChat(req: Request, res: Response, next: NextFunction) {
     try {
       const {groupChatId, newName}: {groupChatId: string, newName: string} = req.body;
-      const chat = await chatService.renameGroupChat(req.user._id.toString(), groupChatId, newName);
-      return res.json(chat);
+      await chatService.renameGroupChat(req.user._id.toString(), groupChatId, newName);
+      return res.status(204).end();
     }
     catch (err) {
       next(err)
     }
   }
 
-  async joinToGroup(req: Request, res: Response, next: NextFunction) { // Вступить в групповой чат
+  async deleteGroupChat(req: Request, res: Response, next: NextFunction) {
+    try {
+      const {chatId}: {chatId: string} = req.body;
+      await chatService.deleteGroupChat(req.user._id.toString(), chatId);
+      res.status(204).end();
+    }
+    catch (err) {
+      next(err)
+    }
+  }
+
+  async joinToGroup(req: Request, res: Response, next: NextFunction) { 
     try {
       const {groupChatId}: {groupChatId: string, userId: string} = req.body;
-      const chat = await chatService.joinToGroup(groupChatId, req.user._id.toString());
-      return res.json(chat);
+      await chatService.joinToGroup(groupChatId, req.user._id.toString());
+      return res.status(204).end();
     }
     catch (err) {
       next(err)
     }
   }
 
-  async leaveGroup(req: Request, res: Response, next: NextFunction) { // Выйти из группового чата
+  async deleteUserFromChat(req: Request, res: Response, next: NextFunction) {
     try {
-      const {groupChatId}: {groupChatId: string} = req.body;
-      const chat = await chatService.leaveGroup(groupChatId, req.user._id.toString());
-      return res.json(chat);
+      const {chatId, userId}: {chatId: string, userId: string} = req.body;
+      await chatService.deleteUserFromChat(chatId, userId);
+      return res.status(204).end();
     }
     catch (err) {
       next(err)
