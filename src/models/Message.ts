@@ -12,7 +12,7 @@ const MessageSchema = new Schema(
       trim: true,
       required: [true, 'Message is required'],
     },
-    chat: {
+    chatId: {
       type: Schema.Types.ObjectId,
       ref: 'chats',
     }

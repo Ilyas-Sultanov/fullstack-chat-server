@@ -1,7 +1,9 @@
-import { Schema } from 'mongoose';
+import { PopulatedDoc, Document, ObjectId } from 'mongoose';
+import { IChat } from './chat';
+import { IUser } from './user';
 
 export interface IMessage {
-  sender: Schema.Types.ObjectId,
+  sender: PopulatedDoc<Document<ObjectId> & IUser>,
   content: string,
-  chst: Schema.Types.ObjectId,
+  chatId: PopulatedDoc<Document<ObjectId> & IChat>,
 }

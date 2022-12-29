@@ -76,16 +76,16 @@ class ChatService {
   async getUserChats(userId: string) {
     const chats = await ChatModel.find(
       { users: {$elemMatch: { $eq: userId }} },
-      '',
+      '-updatedAt -__v',
       {
         populate: [
           {
             path: 'users',
-            select: '-password',
+            select: '-password -updatedAt -__v',
           },
           {
             path: 'groupAdmin',
-            select: '-password',
+            select: '-password -updatedAt -__v',
           },
           {
             path: 'lastMessage', 
@@ -106,7 +106,7 @@ class ChatService {
       $and: [
         { isGroupChat: true }, // искать только по групповым чатам
         { users: { "$ne": currentUserId } }, // Искать только там где нет текущего пользователя
-        { name: {$regex: new RegExp('^' + query.name + '.*', 'i')} },
+        { name: {$regex: new RegExp('^' + query.name + '.*', 'i')} }, // Искать чаты, название которых начинается с query.name или равно ему.
       ]
     }
 

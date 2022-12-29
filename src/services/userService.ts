@@ -66,7 +66,7 @@ class UserService {
     };
 
     const filter: FilterQuery<IUser> = cleanObject(preFilter);
-    const queryProjection = '_id name email roles isActivated createdAt';
+    const queryProjection = '_id name email avatar roles isActivated createdAt';
     const options: QueryOptions = cleanObject(preOptions);
 
     const usersData = await paginatedResults<IUser>(
