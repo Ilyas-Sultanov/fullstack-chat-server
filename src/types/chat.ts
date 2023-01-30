@@ -11,11 +11,12 @@ import { IPaginatedQuery } from './paginatedQuery';
 // }
 
 export interface IChat {
-  name: string,
-  isGroupChat: boolean,
-  users: Array<PopulatedDoc<Document<ObjectId> & IUser>>,
-  lastMessage: string,
-  groupAdmin: PopulatedDoc<Document<ObjectId> & IUser>,
+  _id: string
+  name: string
+  isGroupChat: boolean
+  users: Array<PopulatedDoc<Document<ObjectId> & IUser>>
+  lastMessage: string
+  groupAdmin: PopulatedDoc<Document<ObjectId> & IUser>
 }
 
 export interface IChatQuery extends IPaginatedQuery {

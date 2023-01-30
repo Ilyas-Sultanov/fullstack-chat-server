@@ -1,25 +1,24 @@
 import { Request, Response, NextFunction } from "express";
 import ApiError from "../exceptions/ApiError";
 import { messageService } from '../services/message';
+import { IMessageQuery } from "../types/message";
 
 class Message {
-  async create(req: Request, res: Response, next: NextFunction) {
+  async create(req: Request<{}, {}, { chatId: string, content: string }, {}>, res: Response, next: NextFunction) {
     try {
-      const { chatId, content }: { chatId: string, content: string } = req.body;
+      const { chatId, content } = req.body;
       if (!chatId || !content) throw ApiError.badRequest('ChatId and content is required.');
-      await messageService.create(String(req.user._id), chatId, content);
-      res.status(201).end();
+      const msg = await messageService.create(String(req.user._id), chatId, content);
+      res.status(201).json(msg);
     }
     catch (err) {
       next(err)
     }
   }
 
-  async getAll(req: Request, res: Response, next: NextFunction) {
+  async getAll(req: Request<{}, {}, {}, IMessageQuery>, res: Response, next: NextFunction) {
     try {
-      const { chatId } = req.params;
-      if (!chatId) throw ApiError.badRequest('ChatId is required.');
-      const messages = await messageService.getAll(chatId); 
+      const messages = await messageService.getAll(req.query, req.originalUrl); 
       res.json(messages);
     }
     catch (err) {
